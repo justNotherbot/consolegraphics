@@ -38,7 +38,7 @@ namespace console
             height = b;
             title = c;
         }
-        int createConsole()
+        int createConsole() //returns 0 if something went wrong, 1 if console has been created successfully
         {
             const wchar_t* newtitle = str2cwchr(title);
             SetConsoleWindowInfo(sobuf, TRUE, &coords); //setting a small window size first(idk why but it works)
@@ -87,10 +87,10 @@ namespace console
                 a = (float)(y1 - y) / (float)(x1 - x);
                 b = y - a * x;
                 f = fabs(x - x1) * 0.01;
-                for (float n = min(x, x1); n < min(x, x1) + fabs(x - x1); n += f)
+                for (float n = min(x, x1); n <= max(x, x1); n += f)
                 {
                     tmp_y = a * n + b;
-                    fillCell(n, (int)tmp_y, s, c);
+                    fillCell(n, std::round(tmp_y), s, c);
                 }
             }
             else
@@ -120,14 +120,17 @@ namespace console
             }
             fillCell((short)h + r - 1, (short)v, s, c);
         }
-        double* rotateLine(double x, double y, double ang, double dist)
+        double* rotateLine(double x, double y, double x1, double y1, double ang)
         {
+            double dist = sqrt((x1 - x) * (x1 - x) + (y1 - y) * (y1 - y));
+            //std::cout << dist;
+            double c_ang = acos((x - x1) / dist);
             double rad_ang = ang * 3.14159265 / 180.0; //degrees to radians
-            double adjacent = dist * cos(rad_ang);
-            double opposite = adjacent * tan(rad_ang);
+            double adjacent = dist * cos(c_ang+rad_ang);
+            double opposite = adjacent * tan(c_ang+rad_ang);
             double points[2];
-            points[0] = x + adjacent;
-            points[1] = y + opposite;
+            points[0] = x + std::round(adjacent);
+            points[1] = y + std::round(opposite);
             return points;
         }
         void releaseMemory() //call after the main loop/thread quits
