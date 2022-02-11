@@ -16,19 +16,12 @@ namespace console
         wchar_t* str2cwchr(std::string str)
         {
             wchar_t* s;
-            s = new wchar_t[str.length()];
-            s[str.length()] = '\0'; //Add a null pointer at the end so that we won't read any memory blocks that don't belong to the string
+            s = new wchar_t[str.length()+1];            
             for (int i = 0; i < str.length(); i++)
             {
-                if (sizeof(str[i]) <= 2)
-                {
-                    s[i] = str[i];
-                }
-                else
-                {
-                    s[i] = 'a'; //If we have overflow, add a
-                }
+                s[i] = str[i];
             }
+            s[str.length()] = '\0'; //Add a null pointer at the end so that we won't read any memory blocks that don't belong to the string
             return s;
         }
     public:
@@ -69,33 +62,31 @@ namespace console
         }
         void updateScreen() //test
         {
-            DWORD cwritten;
             WriteConsoleOutput(sobuf, dsp, { width, height }, { 0, 0 }, &coords);
             for (int i = 0; i < width * height; i++) //filling pointer with spaces so that nothing overlaps
             {
                 dsp[i].Char.UnicodeChar = L' ';
                 dsp[i].Attributes = 0x000F;
             }                
-            //WriteConsoleOutputAttribute(sobuf, &c, 1, { x, y }, &cwritten);
         }
-        void drawLine(short x, short y, short x1, short y1, wchar_t s = 0x2588, short c = 0x000F) //Draws line on console. Uses linear equation principle.
+        void drawLine(double x, double y, double x1, double y1, wchar_t s = 0x2588, short c = 0x000F) //Draws line on console. Uses linear equation principle.
         {
-            float a, tmp_y, f;
+            double a, tmp_y, f;
             if (x != x1)
             {
-                float b;
-                a = (float)(y1 - y) / (float)(x1 - x);
+                double b;
+                a = (y1 - y) / (x1 - x);
                 b = y - a * x;
                 f = fabs(x - x1) * 0.01;
-                for (float n = min(x, x1); n <= max(x, x1); n += f)
+                for (double n = min(x, x1); n <= max(x, x1); n += f)
                 {
                     tmp_y = a * n + b;
-                    fillCell(n, std::round(tmp_y), s, c);
+                    fillCell(std::round(n), std::round(tmp_y), s, c);
                 }
             }
             else
             {
-                for (int n = min(y, y1); n < max(y, y1); n++)
+                for (double n = min(y, y1); n < max(y, y1); n++)
                 {
                     fillCell(x, n, s, c);
                 }
@@ -103,7 +94,7 @@ namespace console
         }
         void drawNgon(short coord[], int n, wchar_t s = 0x2588, short c = 0x000F) //Connects points of ngon in the same order as they are specified
         {
-            for (int i = 0; i < n * 2; i += 2)
+            for (int i = 0; i < n+2; i += 2)
             {
                 drawLine(coord[i], coord[i + 1], coord[i + 2], coord[i + 3], s, c);
             }
@@ -122,13 +113,13 @@ namespace console
         }
         double* rotateLine(double x, double y, double x1, double y1, double ang)
         {
-            double dist = sqrt((x1 - x) * (x1 - x) + (y1 - y) * (y1 - y));
-            //std::cout << dist;
-            double c_ang = acos((x - x1) / dist);
+            double dist = sqrt((x1 - x) * (x1 - x) + (y1 - y) * (y1 - y)); //current hypothenuse
+            double c_ang = acos((x1 - x) / dist);
+            if (y > y1) c_ang += 2*(3.14159 - c_ang);
             double rad_ang = ang * 3.14159265 / 180.0; //degrees to radians
             double adjacent = dist * cos(c_ang+rad_ang);
             double opposite = adjacent * tan(c_ang+rad_ang);
-            double points[2];
+            double points[2] = {0, 0};
             points[0] = x + std::round(adjacent);
             points[1] = y + std::round(opposite);
             return points;
