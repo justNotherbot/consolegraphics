@@ -18,9 +18,7 @@ namespace console
             wchar_t* s;
             s = new wchar_t[str.length()+1];            
             for (int i = 0; i < str.length(); i++)
-            {
                 s[i] = str[i];
-            }
             s[str.length()] = '\0'; //Add a null pointer at the end so that we won't read any memory blocks that don't belong to the string
             return s;
         }
@@ -124,9 +122,16 @@ namespace console
             points[1] = y + std::round(opposite);
             return points;
         }
+        short* moveByAngle(short x, short y, double dist, double ang, double fov)
+        {
+            double rad_ang = ang * 3.14159265 / 180.0 + fov;
+            short points[2] = {0, 0};
+            points[0] = x - std::round(cos(rad_ang) * dist);
+            points[1] = y - std::round(sin(rad_ang) * dist);
+            return points;
+        }
         void releaseMemory() //call after the main loop/thread quits
         {
             delete[] dsp;
         }        
     };
-}
