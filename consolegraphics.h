@@ -1,5 +1,7 @@
 #include <iostream>
 #include <math.h>
+#include <string>
+#include <fstream>
 #include <windows.h>
 
 namespace console
@@ -49,8 +51,11 @@ namespace console
                 return 0;
             }
             dsp = new CHAR_INFO[width * height];
-            for (int i = 0; i < width * height; i++)
-                dsp[i].Char.UnicodeChar = ' ';
+            for (int i = 0; i < width * height; i++) //filling pointer with spaces so that nothing overlaps
+            {
+                dsp[i].Char.UnicodeChar = L' ';
+                dsp[i].Attributes = 0x000F;
+            }
             return 1;
         }
         void fillCell(short x, short y, wchar_t s = 0x2588, short c = 0x000F) //Fills a cell with some symbol. By default it's a fill symbol
@@ -58,14 +63,21 @@ namespace console
             dsp[y * width + x].Char.UnicodeChar = s;
             dsp[y * width + x].Attributes = c;
         }
-        void updateScreen() //test
+        short getAttribute(short x, short y) //Returns color of a cell
+        {
+            return dsp[y * width + x].Attributes;
+        }
+        void updateScreen(bool refresh = true) //disable refresh for precision
         {
             WriteConsoleOutput(sobuf, dsp, { width, height }, { 0, 0 }, &coords);
-            for (int i = 0; i < width * height; i++) //filling pointer with spaces so that nothing overlaps
+            if (refresh)
             {
-                dsp[i].Char.UnicodeChar = L' ';
-                dsp[i].Attributes = 0x000F;
-            }                
+                for (int i = 0; i < width * height; i++) //filling pointer with spaces so that nothing overlaps
+                {
+                    dsp[i].Char.UnicodeChar = L' ';
+                    dsp[i].Attributes = 0x000F;
+                }
+            }       
         }
         void drawLine(double x, double y, double x1, double y1, wchar_t s = 0x2588, short c = 0x000F) //Draws line on console. Uses linear equation principle.
         {
@@ -109,6 +121,35 @@ namespace console
             }
             fillCell((short)h + r - 1, (short)v, s, c);
         }
+        void drawSprite(short x, short y, double scale, std::string texture, double width, double height) //Draw sprite given coordinates of its center and scale
+        {
+            short color = 0;
+            width = width * scale;
+            height = height * scale;
+            for (short i = y - short(height / 2); i < y + short(height / 2); i++)
+            {
+                for (short j = x - short(width / 2); j < x + short(width / 2); j++)
+                {
+                    if (texture[static_cast<int64_t>((i - y + height / 2) / scale) * static_cast<int64_t>(width / scale) + static_cast<int64_t>((j - x + width / 2) / scale)] == 'b')
+                        color = 12;
+                    else if (texture[static_cast<int64_t>((i - y + height / 2) / scale) * static_cast<int64_t>(width / scale) + static_cast<int64_t>((j - x + width / 2) / scale)] == 'a')
+                        color = 14;
+                    else if (texture[static_cast<int64_t>((i - y + height / 2) / scale) * static_cast<int64_t>(width / scale) + static_cast<int64_t>((j - x + width / 2) / scale)] == 'r')
+                        color = 4;
+                    else if (texture[static_cast<int64_t>((i - y + height / 2) / scale) * static_cast<int64_t>(width / scale) + static_cast<int64_t>((j - x + width / 2) / scale)] == 'g')
+                        color = 2;
+                    else
+                        color = 7;
+                    fillCell(j, i, 0x2588, color);
+                }
+            }
+        }
+		double project(double a1, double b1, double a, double b, double l, double fov)
+        {
+            double xprojected = (l * (a - a1)) / (2 * tan(fov / 2) * (b - b1));
+            double result = a1 + xprojected;
+            return result;
+        }
         double* rotateLine(double x, double y, double x1, double y1, double ang)
         {
             double dist = sqrt((x1 - x) * (x1 - x) + (y1 - y) * (y1 - y)); //current hypothenuse
@@ -122,12 +163,12 @@ namespace console
             points[1] = y + std::round(opposite);
             return points;
         }
-        short* moveByAngle(short x, short y, double dist, double ang, double fov)
+        double* moveByAngle(double x, double y, double dist, double ang, double fov)
         {
             double rad_ang = ang * 3.14159265 / 180.0 + fov;
-            short points[2] = {0, 0};
-            points[0] = x - std::round(cos(rad_ang) * dist);
-            points[1] = y - std::round(sin(rad_ang) * dist);
+            double points[2] = {0.0, 0.0};
+            points[0] = x - cos(rad_ang) * dist;
+            points[1] = y - sin(rad_ang) * dist;
             return points;
         }
         void releaseMemory() //call after the main loop/thread quits
@@ -135,3 +176,4 @@ namespace console
             delete[] dsp;
         }        
     };
+}
