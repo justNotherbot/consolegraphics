@@ -63,10 +63,6 @@ namespace console
             dsp[y * width + x].Char.UnicodeChar = s;
             dsp[y * width + x].Attributes = c;
         }
-        short getAttribute(short x, short y) //Returns color of a cell
-        {
-            return dsp[y * width + x].Attributes;
-        }
         void updateScreen(bool refresh = true) //disable refresh for precision
         {
             WriteConsoleOutput(sobuf, dsp, { width, height }, { 0, 0 }, &coords);
@@ -79,7 +75,7 @@ namespace console
                 }
             }       
         }
-        void drawLine(double x, double y, double x1, double y1, wchar_t s = 0x2588, short c = 0x000F) //Draws line on console. Uses linear equation principle.
+        void drawLine(double x, double y, double x1, double y1, wchar_t s = 0x2588, short c = 0x000F) //Draws line on console. Uses linear interpolation.
         {
             double a, tmp_y, f;
             if (x != x1)
@@ -102,13 +98,16 @@ namespace console
                 }
             }
         }
-        void drawNgon(short coord[], int n, wchar_t s = 0x2588, short c = 0x000F) //Connects points of ngon in the same order as they are specified
+        void drawNgon(short *coord[], int n, wchar_t s = 0x2588, short c = 0x000F) //Connects points of ngon in the same order as they are specified
         {
             for (int i = 0; i < n+2; i += 2)
             {
-                drawLine(coord[i], coord[i + 1], coord[i + 2], coord[i + 3], s, c);
+                if (*coord[i] >= 0 && *coord[i + 1] >= 0 && *coord[i + 2] >= 0 && *coord[i + 3] >= 0)
+                    drawLine(*coord[i], *coord[i + 1], *coord[i + 2], *coord[i + 3], s, c);
+                else
+                    break;
             }
-            drawLine(coord[0], coord[1], coord[n * 2 - 2], coord[n * 2 - 1], s, c);
+            drawLine(*coord[0], *coord[1], *coord[n * 2 - 2], *coord[n * 2 - 1], s, c);
         }
         void drawCircle(int h, int v, int r, wchar_t s = 0x2588, short c = 0x000F) //Draws circle. It actually looks more like an oval because of console cells' width/hight ratio
         {
@@ -121,7 +120,7 @@ namespace console
             }
             fillCell((short)h + r - 1, (short)v, s, c);
         }
-        void drawSprite(short x, short y, double scale, std::string texture, double width, double height) //Draw sprite given coordinates of its center and scale
+        void drawSprite(short x, short y, double scale, std::string texture, short width, short height) //Draw sprite given coordinates of its center and scale
         {
             short color = 0;
             width = width * scale;
@@ -130,25 +129,19 @@ namespace console
             {
                 for (short j = x - short(width / 2); j < x + short(width / 2); j++)
                 {
-                    if (texture[static_cast<int64_t>((i - y + height / 2) / scale) * static_cast<int64_t>(width / scale) + static_cast<int64_t>((j - x + width / 2) / scale)] == 'b')
+                    if (texture[static_cast<int64_t>(std::round(i / scale)) * static_cast<int64_t>(width/scale) + static_cast<int64_t>(j / scale)] == 'b')
                         color = 12;
-                    else if (texture[static_cast<int64_t>((i - y + height / 2) / scale) * static_cast<int64_t>(width / scale) + static_cast<int64_t>((j - x + width / 2) / scale)] == 'a')
+                    else if (texture[static_cast<int64_t>(std::round(i / scale)) * static_cast<int64_t>(width/scale) + static_cast<int64_t>(j / scale)] == 'a')
                         color = 14;
-                    else if (texture[static_cast<int64_t>((i - y + height / 2) / scale) * static_cast<int64_t>(width / scale) + static_cast<int64_t>((j - x + width / 2) / scale)] == 'r')
+                    else if (texture[static_cast<int64_t>(std::round(i / scale)) * static_cast<int64_t>(width/scale) + static_cast<int64_t>(j / scale)] == 'r')
                         color = 4;
-                    else if (texture[static_cast<int64_t>((i - y + height / 2) / scale) * static_cast<int64_t>(width / scale) + static_cast<int64_t>((j - x + width / 2) / scale)] == 'g')
+                    else if (texture[static_cast<int64_t>(std::round(i / scale)) * static_cast<int64_t>(width/scale) + static_cast<int64_t>(j / scale)] == 'g')
                         color = 2;
                     else
                         color = 7;
                     fillCell(j, i, 0x2588, color);
                 }
             }
-        }
-		double project(double a1, double b1, double a, double b, double l, double fov)
-        {
-            double xprojected = (l * (a - a1)) / (2 * tan(fov / 2) * (b - b1));
-            double result = a1 + xprojected;
-            return result;
         }
         double* rotateLine(double x, double y, double x1, double y1, double ang)
         {
@@ -170,6 +163,39 @@ namespace console
             points[0] = x - cos(rad_ang) * dist;
             points[1] = y - sin(rad_ang) * dist;
             return points;
+        }
+        double project(double a1, double b1, double a, double b, double l, double fov) //Project 2 dimensional point onto a line on that plane
+        {
+            double xprojected = (l * (a - a1)) / (2 * tan(fov / 2) * (b - b1));
+            double result = a1 + xprojected;
+            return result;
+        }
+        void drawTri3d(double fov, double cam_coords[], double coords[]) //Project 3d triangle onto the screen surface
+        {
+            short* tmp;
+            tmp = new short[6]; //Coordinates of projected triangle
+            double tmp_x;
+            double tmp_y;
+            bool draw = true;
+            for (int i = 0; i < 9; i += 3)
+            {
+                tmp_x = project(cam_coords[0], cam_coords[2], coords[i], coords[i + 2], width, fov * 3.14159265 / 180.0);
+                tmp_y = project(cam_coords[1], cam_coords[2], coords[i + 1], coords[i + 2], height, fov * 3.14159265 / 180.0);
+                if (tmp_x < 0 || tmp_y < 0 || tmp_x > width || tmp_y > height) //If projected values exceed bounds, draw nothing
+                {
+                    draw = false;
+                    break;
+                }
+                tmp[(i / 3) * 2] = std::round(tmp_x);
+                tmp[(i / 3) * 2+1] = std::round(tmp_y);
+            }
+            if (draw) //Drawing triangle
+            {
+                drawLine(short(tmp[0]), short(tmp[1]), short(tmp[2]), short(tmp[3]));
+                drawLine(short(tmp[2]), short(tmp[3]), short(tmp[4]), short(tmp[5]));
+                drawLine(short(tmp[4]), short(tmp[5]), short(tmp[0]), short(tmp[1]));
+            }
+            delete[] tmp;
         }
         void releaseMemory() //call after the main loop/thread quits
         {
