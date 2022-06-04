@@ -156,9 +156,9 @@ namespace console
             points[1] = y + std::round(opposite);
             return points;
         }
-        double* moveByAngle(double x, double y, double dist, double ang, double fov)
+        double* moveByAngle(double x, double y, double dist, double ang)
         {
-            double rad_ang = ang * 3.14159265 / 180.0 + fov;
+            double rad_ang = ang * 3.14159265 / 180.0;
             double points[2] = {0.0, 0.0};
             points[0] = x - cos(rad_ang) * dist;
             points[1] = y - sin(rad_ang) * dist;
